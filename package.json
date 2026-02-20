@@ -1,0 +1,21 @@
+{
+  "name": "p2pvoice",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@tauri-apps/api": "^2"
+  },
+  "description": "This template should help get you started developing with Tauri in vanilla HTML, CSS and Javascript.",
+  "main": "index.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@tauri-apps/api": "^2.10.1"
+  }
+}

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>P2P Chat Room</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    #messages { height: 400px; overflow-y: auto; border: 1px solid #ccc; padding: 8px; margin-bottom: 10px; }
+    .self { font-weight: bold; color: blue; }
+    .peer { color: green; }
+  </style>
+
+  <script type="module"  src="./chatClient.js"></script>
+</head>
+<body>
+  <h1>Chat Room</h1>
+
+  <div id="messages"></div>
+
+  <form id="chat-form">
+    <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off" />
+    <button type="submit">Send</button>
+  </form>
+</body>
+</html>
