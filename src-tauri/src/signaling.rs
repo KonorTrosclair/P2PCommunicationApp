@@ -14,15 +14,12 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-//use crate::signaling::ws_handler; // adjust if in same file
 
 use tokio::sync::mpsc;
-use tokio::net::TcpListener;
+use tokio::sync::oneshot;
+use std::sync::OnceLock;
 
-//local ip
-use local_ip_address::local_ip;
-
-/// Shared room state
+static SHUTDOWN_TX: OnceLock<Arc<Mutex<Option<oneshot::Sender<()>>>>> = OnceLock::new();
 pub type Rooms = Arc<Mutex<HashMap<String, Vec<tokio::sync::mpsc::UnboundedSender<axum::extract::ws::Message>>>>>;
 
 
@@ -158,17 +155,33 @@ pub async fn start_signaling_server() {
         .route("/ws", get(ws_handler))
         .layer(axum::extract::Extension(rooms));
 
-    // 👇 IMPORTANT: bind to all interfaces
     let addr: SocketAddr = "0.0.0.0:3000".parse().unwrap();
-
-    println!("======================================");
-    println!("Signaling server starting on:");
-    println!("  {}", addr);
-    println!("======================================");
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
 
-    axum::serve(listener, app).await.unwrap();
+    let (tx, rx) = oneshot::channel::<()>();
+
+    let shutdown_store = SHUTDOWN_TX.get_or_init(|| {
+        Arc::new(Mutex::new(None))
+    });
+
+    *shutdown_store.lock().unwrap() = Some(tx);
+
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async {
+            let _ = rx.await;
+            println!("Shutting down signaling server...");
+        })
+        .await
+        .unwrap();
+}
+
+pub async fn stop_signaling_server() {
+    if let Some(store) = SHUTDOWN_TX.get() {
+        if let Some(tx) = store.lock().unwrap().take() {
+            let _ = tx.send(());
+        }
+    }
 }
 
 

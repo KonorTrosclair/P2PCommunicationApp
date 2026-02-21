@@ -1,5 +1,12 @@
 // chat.js
 //import { serverIp } from "./connect.js";
+const leaveClientBtn = document.getElementById('leaveClient');
+
+leaveClientBtn.onclick = (e) => {
+    e.preventDefault();
+    console.log("Leave button clicked, attempting to nav to index");
+    window.location.href = 'index.html';
+}
 
 async function initChat() {
     const room = localStorage.getItem('room') || 'test';
@@ -36,7 +43,11 @@ async function initChat() {
         };
 
         ws.onclose = () => displayMessage('Disconnected from server', 'peer');
-        ws.onerror = (err) => console.error('WebSocket Error:', err);
+        ws.onerror = (err) => {
+            //e.preventDefault();
+            console.error('WebSocket Error:', err);
+            window.location.href = 'index.html';
+        }
 
         // 3. Form Listener
         chatForm.addEventListener('submit', (e) => {
@@ -55,8 +66,10 @@ async function initChat() {
         });
 
     } catch (err) {
+        //e.preventDefault();
         console.error("Failed to invoke get_local_ip:", err);
-        displayMessage("Error: Could not reach Rust backend", "peer");
+        displayMessage("Error: Could not reach Rust backend", "peer"); 
+        window.location.href = 'index.html';
     }
 }
 

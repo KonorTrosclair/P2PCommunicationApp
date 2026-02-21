@@ -26,6 +26,7 @@ hostBtn.onclick = async (e) => {
     }
 
     try {
+        await invoke("start_signaling");
         const ip = await invoke("get_local_ip");
         localStorage.setItem('serverIp', ip);
         window.location.href = 'chatHost.html';
