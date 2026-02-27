@@ -4,7 +4,10 @@
   "version": "0.1.0",
   "identifier": "com.konor.p2pvoice",
   "build": {
-    "frontendDist": "../src"
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
   },
   "app": {
     "withGlobalTauri": true,
@@ -30,4 +33,5 @@
       "icons/icon.ico"
     ]
   }
+  
 }

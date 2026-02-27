@@ -23,10 +23,7 @@ ipForm.addEventListener('submit', (e) => {
     }
 })
 
-backBtn.onclick = (e) => {
-    e.preventDefault();
-    window.location.href = 'index.html';
-}
+
 
 
     

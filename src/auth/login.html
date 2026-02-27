@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="../styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tauri App</title>
+    <script type="module" src="./login.js"></script>
+    <script type="module" src="../backButton.js"></script>
+  </head>
+
+  <body>
+    <main class="container">
+      <h1>P2P Voice Call</h1>
+        <form class="column" id="signUpForm">
+            <input
+                type="text"
+                id="email"
+                placeholder="Enter Email..."
+                />
+            <input
+                type="text"
+                id="password"
+                placeholder="Enter Password..."
+                />
+            <button id="login" style="margin-top: 10px">Login!</button>  
+        </form>
+      
+        <button id="backBtn" style="margin-top: 10px;">Back to Home</button>
+      <p id="greet-msg"></p>
+    </main>
+  </body>
+</html>
