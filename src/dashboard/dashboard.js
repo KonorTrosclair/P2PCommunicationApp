@@ -7,6 +7,7 @@ const hostBtn = document.getElementById('host');
 
 const addFriendBtn = document.getElementById('add-friend');
 const friendRequestsBtn = document.getElementById('friend-requests');
+const friendListBtn = document.getElementById('friend-list');
 
 
 hostBtn.onclick = async (e) => {
@@ -78,6 +79,11 @@ addFriendBtn.onclick = (e) => {
 friendRequestsBtn.onclick = (e) => {
     e.preventDefault();
     window.location.href = '../friend/friendRequest.html';
+}
+
+friendListBtn.onclick = (e) => {
+    e.preventDefault();
+    window.location.href = '../friend/friendList.html';
 }
 
 
