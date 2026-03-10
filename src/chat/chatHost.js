@@ -16,7 +16,7 @@ leaveHostBtn.onclick = async (e) => {
         console.error("Failed to invoke stop_signaling:", err);
     }
     console.log("Leave button clicked, attempting to nav to index");
-    window.location.href = 'index.html';
+    window.location.href = '../dashboard/dashboard.html';
 }
 
 async function initChat() {

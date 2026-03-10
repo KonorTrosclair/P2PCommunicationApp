@@ -1,5 +1,3 @@
-//use hyper::Server;
-
 use axum::{
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
     routing::get,
@@ -13,51 +11,53 @@ use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
 };
-
-
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use std::sync::OnceLock;
 
-static SHUTDOWN_TX: OnceLock<Arc<Mutex<Option<oneshot::Sender<()>>>>> = OnceLock::new();
-pub type Rooms = Arc<Mutex<HashMap<String, Vec<tokio::sync::mpsc::UnboundedSender<axum::extract::ws::Message>>>>>;
+use std::sync::MutexGuard;
+use std::net::SocketAddr;
 
+static SHUTDOWN_TX: OnceLock<Arc<Mutex<Option<oneshot::Sender<()>>>>> = OnceLock::new();
+pub type Rooms = Arc<Mutex<HashMap<String, Vec<mpsc::UnboundedSender<Message>>>>>;
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
 enum ClientMessage {
     #[serde(rename = "join")]
-    Join {
-        room: String,
-    },
+    Join { room: String },
 
     #[serde(rename = "signal")]
-    Signal {
-        room: String,
-        data: serde_json::Value,
-    },
-}
+    Signal { room: String, data: serde_json::Value },
 
+    #[serde(rename = "offer")]
+    Offer { room: String, offer: serde_json::Value },
+
+    #[serde(rename = "answer")]
+    Answer { room: String, answer: serde_json::Value },
+
+    #[serde(rename = "ice")]
+    Ice { room: String, candidate: serde_json::Value },
+}
 
 #[derive(Debug, Serialize)]
 #[serde(tag = "type")]
 enum ServerMessage {
+    #[serde(rename = "role")]
+    Role { initiator: bool },
+
     #[serde(rename = "joined")]
-    Joined {
-        room: String,
-    },
+    Joined { room: String },
+
+    #[serde(rename = "peer-joined")]
+    PeerJoined { room: String }, // new
 
     #[serde(rename = "signal")]
-    Signal {
-        data: serde_json::Value,
-    },
+    Signal { data: serde_json::Value },
 
     #[serde(rename = "error")]
-    Error {
-        message: String,
-    },
+    Error { message: String },
 }
-
 
 pub async fn handle_socket(socket: WebSocket, rooms: Rooms) {
     let (mut sender, mut receiver) = socket.split();
@@ -74,10 +74,8 @@ pub async fn handle_socket(socket: WebSocket, rooms: Rooms) {
 
     let mut current_room: Option<String> = None;
 
-    // Receive messages FROM this client
     while let Some(Ok(msg)) = receiver.next().await {
         let Message::Text(text) = msg else { continue };
-
         let parsed: ClientMessage = match serde_json::from_str(&text) {
             Ok(v) => v,
             Err(_) => continue,
@@ -86,46 +84,69 @@ pub async fn handle_socket(socket: WebSocket, rooms: Rooms) {
         match parsed {
             ClientMessage::Join { room } => {
                 let mut rooms = rooms.lock().unwrap();
+                let peers = rooms.entry(room.clone()).or_default();
 
-                rooms
-                    .entry(room.clone())
-                    .or_default()
-                    .push(tx.clone());
+                let initiator = peers.is_empty();
+                println!("Join: room={}, initiator={}, peers_before={}", room, initiator, peers.len()); // add
+                // Grab host tx BEFORE pushing new peer
+                let host_tx = if !initiator {
+                    Some(peers[0].clone())
+                } else {
+                    None
+                };
 
+                peers.push(tx.clone());
                 current_room = Some(room.clone());
 
-                // Acknowledge join
+                // Send role assignment to joining peer
                 let _ = tx.send(Message::Text(
-                    serde_json::to_string(
-                        &ServerMessage::Joined { room }
-                    ).unwrap()
+                    serde_json::to_string(&ServerMessage::Role { initiator }).unwrap()
                 ));
+
+                // Acknowledge join to joining peer
+                let _ = tx.send(Message::Text(
+                    serde_json::to_string(&ServerMessage::Joined { room: room.clone() }).unwrap()
+                ));
+
+                // Notify host that a peer joined
+                if let Some(host) = host_tx {
+                    println!("Sending peer-joined to host"); // add
+                    let _ = host.send(Message::Text(
+                        serde_json::to_string(&ServerMessage::PeerJoined { room: room.clone() }).unwrap()
+                    ));
+                }
             }
 
             ClientMessage::Signal { room, data } => {
-                let rooms = rooms.lock().unwrap();
+                let rooms_guard = rooms.lock().unwrap();
+                forward_to_room(&rooms_guard, &tx, &room, data);
+            }
 
-                if let Some(peers) = rooms.get(&room) {
-                    let msg = Message::Text(
-                        serde_json::to_string(
-                            &ServerMessage::Signal { data }
-                        ).unwrap()
-                    );
+            ClientMessage::Offer { room, offer } => {
+                let rooms_guard = rooms.lock().unwrap();
+                let data = serde_json::json!({ "type": "offer", "offer": offer });
+                println!("Offer sent to room {}: {}", room, data);
+                forward_to_room(&rooms_guard, &tx, &room, data);
+            }
 
-                    for peer in peers {
-                        if !peer.same_channel(&tx) {
-                            let _ = peer.send(msg.clone());
-                        }
-                    }
-                }
+            ClientMessage::Answer { room, answer } => {
+                let rooms_guard = rooms.lock().unwrap();
+                let data = serde_json::json!({ "type": "answer", "answer": answer });
+                forward_to_room(&rooms_guard, &tx, &room, data);
+            }
+
+            ClientMessage::Ice { room, candidate } => {
+                let rooms_guard = rooms.lock().unwrap();
+                let data = serde_json::json!({ "type": "ice", "candidate": candidate });
+                forward_to_room(&rooms_guard, &tx, &room, data);
             }
         }
     }
 
-    // Cleanup on disconnect
+    // Cleanup
     if let Some(room) = current_room {
-        let mut rooms = rooms.lock().unwrap();
-        if let Some(peers) = rooms.get_mut(&room) {
+        let mut rooms_guard = rooms.lock().unwrap();
+        if let Some(peers) = rooms_guard.get_mut(&room) {
             peers.retain(|p| !p.same_channel(&tx));
         }
     }
@@ -133,20 +154,28 @@ pub async fn handle_socket(socket: WebSocket, rooms: Rooms) {
     send_task.abort();
 }
 
+fn forward_to_room(
+    rooms: &MutexGuard<'_, HashMap<String, Vec<mpsc::UnboundedSender<Message>>>>,
+    sender_tx: &mpsc::UnboundedSender<Message>,
+    room: &str,
+    data: serde_json::Value,
+) {
+    if let Some(peers) = rooms.get(room) {
+        let msg_text = Message::Text(data.to_string());
+        for peer in peers {
+            if !peer.same_channel(sender_tx) {
+                let _ = peer.send(msg_text.clone());
+            }
+        }
+    }
+}
 
 async fn ws_handler(
     ws: WebSocketUpgrade,
     Extension(rooms): Extension<Rooms>,
 ) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| async move {
-        handle_socket(socket, rooms).await;
-    })
+    ws.on_upgrade(move |socket| handle_socket(socket, rooms))
 }
-//use axum::{Router, routing::get, extract::Extension};
-//use std::{collections::HashMap, sync::{Arc, Mutex}};
-
-
-use std::net::SocketAddr;
 
 pub async fn start_signaling_server() {
     let rooms: Rooms = Arc::new(Mutex::new(HashMap::new()));
@@ -156,15 +185,10 @@ pub async fn start_signaling_server() {
         .layer(axum::extract::Extension(rooms));
 
     let addr: SocketAddr = "0.0.0.0:3000".parse().unwrap();
-
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
 
     let (tx, rx) = oneshot::channel::<()>();
-
-    let shutdown_store = SHUTDOWN_TX.get_or_init(|| {
-        Arc::new(Mutex::new(None))
-    });
-
+    let shutdown_store = SHUTDOWN_TX.get_or_init(|| Arc::new(Mutex::new(None)));
     *shutdown_store.lock().unwrap() = Some(tx);
 
     axum::serve(listener, app)
@@ -183,5 +207,3 @@ pub async fn stop_signaling_server() {
         }
     }
 }
-
-

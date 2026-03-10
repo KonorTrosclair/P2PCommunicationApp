@@ -26,7 +26,8 @@ hostBtn.onclick = async (e) => {
         await invoke("start_signaling");
         const ip = await invoke("get_local_ip");
         localStorage.setItem('serverIp', ip);
-        window.location.href = '../chatHost.html';
+        sessionStorage.setItem("isHost", "true");
+        window.location.href = '../chat/chat.html';
     } catch (err) {
         console.error('Invoke failed:', err);
     }
@@ -46,7 +47,7 @@ connectBtn.onclick = async (e) => {
     }
 
     try {
-        window.location.href = '../connectPage.html';
+        window.location.href = '../chat/connectPage.html';
     } catch (err) {
         console.error('Invoke failed:', err);
     }

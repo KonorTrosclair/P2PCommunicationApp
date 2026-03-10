@@ -17,7 +17,8 @@ ipForm.addEventListener('submit', (e) => {
 
     try {
         localStorage.setItem('connectIp', text);
-        window.location.href = 'chatClient.html';
+        sessionStorage.setItem("isHost","false")
+        window.location.href = './chat.html';
     } catch (err) {
         console.error('Invoke failed:', err);
     }

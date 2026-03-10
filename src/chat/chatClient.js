@@ -5,7 +5,7 @@ const leaveClientBtn = document.getElementById('leaveClient');
 leaveClientBtn.onclick = (e) => {
     e.preventDefault();
     console.log("Leave button clicked, attempting to nav to index");
-    window.location.href = 'index.html';
+    window.location.href = '../dashboard/dashboard.html';
 }
 
 async function initChat() {
@@ -42,11 +42,14 @@ async function initChat() {
             }
         };
 
-        ws.onclose = () => displayMessage('Disconnected from server', 'peer');
+        ws.onclose = (event) => {
+            console.log("Socket closed:", event.code, event.reason);
+            displayMessage('Disconnected from server', 'peer');
+        };
         ws.onerror = (err) => {
             //e.preventDefault();
             console.error('WebSocket Error:', err);
-            window.location.href = 'index.html';
+            //window.location.href = '../dashboard/dashboard.html';
         }
 
         // 3. Form Listener
@@ -69,7 +72,7 @@ async function initChat() {
         //e.preventDefault();
         console.error("Failed to invoke get_local_ip:", err);
         displayMessage("Error: Could not reach Rust backend", "peer"); 
-        window.location.href = 'index.html';
+        //window.location.href = '../dashboard/dashboard.html';
     }
 }
 
