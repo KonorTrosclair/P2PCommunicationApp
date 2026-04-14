@@ -4,7 +4,7 @@ import { getFirestore } from "firebase/firestore";
 
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBF3ko59jvnUloJQdgE5yNBjrB_i6L3nDM",
+  apiKey: process.env.APIKEY,
   authDomain: "hybridcommunicationapp.firebaseapp.com",
   projectId: "hybridcommunicationapp",
   storageBucket: "hybridcommunicationapp.firebasestorage.app",
